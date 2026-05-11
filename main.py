@@ -25,7 +25,7 @@ app.add_middleware(
 async def startup():
     init_db()
     init_default_admin()
-    print("CEREBRO Backend v1.0 — Online")
+    print("CEREBRO Backend v1.0 - Online")
 
 @app.get("/api/v1/health")
 async def health():
@@ -54,7 +54,10 @@ async def agent_report(payload: dict, current_user=Depends(get_current_user)):
         record = ReportModel(
             id=str(uuid.uuid4()),
             agent=payload.get("agent", "unknown"),
-            content=str(payload.get("content", "")),
+            message=str(payload.get("message", payload.get("content", ""))),
+            category=payload.get("category", "GENERAL"),
+            priority=payload.get("priority", "NORMAL"),
+            recommended_action=payload.get("recommended_action", ""),
             status=payload.get("status", "PENDING"),
             created_at=datetime.utcnow(),
         )
@@ -72,7 +75,7 @@ async def get_reports(current_user=Depends(get_current_user)):
     db = SessionLocal()
     try:
         records = db.query(ReportModel).order_by(ReportModel.created_at.desc()).limit(50).all()
-        return [{"id": r.id, "agent": r.agent, "content": r.content, "status": r.status, "created_at": r.created_at.isoformat()} for r in records]
+        return [{"id": r.id, "agent": r.agent, "message": r.message, "category": r.category, "priority": r.priority, "status": r.status, "created_at": r.created_at.isoformat()} for r in records]
     except Exception as e:
         return {"error": str(e)}
     finally:
@@ -83,7 +86,7 @@ async def get_memory(current_user=Depends(get_current_user)):
     db = SessionLocal()
     try:
         records = db.query(ExecutiveMemoryModel).order_by(ExecutiveMemoryModel.created_at.desc()).limit(50).all()
-        return [{"id": r.id, "key": r.key, "value": r.value, "created_at": r.created_at.isoformat()} for r in records]
+        return [{"id": r.id, "context_type": r.context_type, "content": r.content, "source": r.source, "importance": r.importance, "created_at": r.created_at.isoformat()} for r in records]
     except Exception as e:
         return {"error": str(e)}
     finally:
