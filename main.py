@@ -8,6 +8,7 @@ import uuid
 
 from core.database import init_db, SessionLocal, UserModel, AgentModel, ReportModel, ExecutiveMemoryModel, PriorityModel, GoalModel, EventModel
 from core.auth import get_current_user, get_admin_user, init_default_admin, create_access_token, verify_password, get_user
+from core.telegram_gateway import notify_report, notify_goal, notify_alert
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="CEREBRO Executive Backend", version="1.0.0")
@@ -63,6 +64,7 @@ async def agent_report(payload: dict, current_user=Depends(get_current_user)):
         )
         db.add(record)
         db.commit()
+        notify_report(record.agent, record.message, record.priority)
         return {"id": record.id, "status": "saved"}
     except Exception as e:
         db.rollback()
