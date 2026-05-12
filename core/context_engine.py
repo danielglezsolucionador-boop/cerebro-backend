@@ -116,7 +116,7 @@ def save_conversation(role: str, message: str, context_type: str = "operational"
             role=role,
             message=message,
             context_type=context_type,
-            metadata=metadata,
+            meta=metadata,
             created_at=datetime.utcnow(),
         )
         db.add(record)
