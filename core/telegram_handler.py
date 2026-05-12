@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from core.database import SessionLocal, TelegramMessageModel, ReportModel, GoalModel, PriorityModel
+from core.database import SessionLocal, TelegramMessageModel, ReportModel, GoalModel, PriorityModel, ExecutivePriorityModel, DecisionMemoryModel, TimelineModel
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8668242201:AAENQTquDPzLwGFvCsKGYhHbIucXWIv-CdU")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "7859486600")
@@ -37,8 +37,26 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         reports = db.query(ReportModel).count()
         goals = db.query(GoalModel).filter(GoalModel.status == "ACTIVE").count()
-        priorities = db.query(PriorityModel).filter(PriorityModel.resolved == False).count()
-        text = f"🧠 <b>CEREBRO STATUS</b>\n\n📋 Reportes totales: {reports}\n🎯 Metas activas: {goals}\n⚡ Prioridades pendientes: {priorities}\n\n✅ Sistema operacional"
+        exec_priorities = db.query(ExecutivePriorityModel).filter(ExecutivePriorityModel.status == "pending").count()
+        critical = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.priority_level == "CRITICAL",
+            ExecutivePriorityModel.status == "pending"
+        ).count()
+        text = (
+            "🧠 <b>CEREBRO STATUS</b>
+
+"
+            f"📋 Reportes totales: {reports}
+"
+            f"🎯 Metas activas: {goals}
+"
+            f"⚡ Prioridades ejecutivas pendientes: {exec_priorities}
+"
+            f"🚨 Criticas sin resolver: {critical}
+
+"
+            "✅ Sistema operacional"
+        )
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode="HTML")
@@ -52,12 +70,14 @@ async def cmd_reportes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         records = db.query(ReportModel).order_by(ReportModel.created_at.desc()).limit(5).all()
         if not records:
-            text = "📋 No hay reportes aún."
+            text = "📋 No hay reportes aun."
         else:
-            lines = ["📋 <b>ÚLTIMOS REPORTES</b>\n"]
+            lines = ["📋 <b>ULTIMOS REPORTES</b>
+"]
             for r in records:
-                lines.append(f"• <b>{r.agent}</b> [{r.priority}] — {r.message[:80]}")
-            text = "\n".join(lines)
+                lines.append(f"- <b>{r.agent}</b> [{r.priority}] -- {r.message[:80]}")
+            text = "
+".join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode="HTML")
@@ -73,10 +93,12 @@ async def cmd_metas(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not records:
             text = "🎯 No hay metas activas."
         else:
-            lines = ["🎯 <b>METAS ACTIVAS</b>\n"]
+            lines = ["🎯 <b>METAS ACTIVAS</b>
+"]
             for r in records:
-                lines.append(f"• {r.title} [{r.priority}]")
-            text = "\n".join(lines)
+                lines.append(f"- {r.title}")
+            text = "
+".join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode="HTML")
@@ -88,14 +110,66 @@ async def cmd_prioridades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_message(str(update.effective_chat.id), "/prioridades", "incoming")
     db = SessionLocal()
     try:
-        records = db.query(PriorityModel).filter(PriorityModel.resolved == False).limit(5).all()
+        records = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.status == "pending"
+        ).order_by(ExecutivePriorityModel.created_at.desc()).limit(5).all()
         if not records:
-            text = "⚡ No hay prioridades pendientes."
+            text = "⚡ No hay prioridades ejecutivas pendientes."
         else:
-            lines = ["⚡ <b>PRIORIDADES PENDIENTES</b>\n"]
+            lines = ["⚡ <b>PRIORIDADES EJECUTIVAS PENDIENTES</b>
+"]
             for r in records:
-                lines.append(f"• [{r.level}] {r.reason[:80]}")
-            text = "\n".join(lines)
+                emoji = "🚨" if r.priority_level == "CRITICAL" else "🔴" if r.priority_level == "HIGH" else "🟡"
+                lines.append(f"{emoji} <b>{r.title}</b> [{r.priority_level}]
+   {r.description[:80] if r.description else ''}")
+            text = "
+".join(lines)
+    finally:
+        db.close()
+    await update.message.reply_text(text, parse_mode="HTML")
+    save_message("CEREBRO", text, "outgoing")
+
+async def cmd_decisions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update.effective_chat.id):
+        return
+    save_message(str(update.effective_chat.id), "/decisions", "incoming")
+    db = SessionLocal()
+    try:
+        records = db.query(DecisionMemoryModel).order_by(DecisionMemoryModel.created_at.desc()).limit(5).all()
+        if not records:
+            text = "🧠 No hay decisiones registradas."
+        else:
+            lines = ["🧠 <b>ULTIMAS DECISIONES</b>
+"]
+            for r in records:
+                lines.append(f"- <b>{r.topic}</b>
+   {r.decision[:100]}")
+            text = "
+".join(lines)
+    finally:
+        db.close()
+    await update.message.reply_text(text, parse_mode="HTML")
+    save_message("CEREBRO", text, "outgoing")
+
+async def cmd_timeline(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update.effective_chat.id):
+        return
+    save_message(str(update.effective_chat.id), "/timeline", "incoming")
+    db = SessionLocal()
+    try:
+        records = db.query(TimelineModel).order_by(TimelineModel.created_at.desc()).limit(7).all()
+        if not records:
+            text = "📅 No hay eventos en el timeline."
+        else:
+            lines = ["📅 <b>TIMELINE RECIENTE</b>
+"]
+            for r in records:
+                emoji = "🚨" if r.importance == "CRITICAL" else "🔴" if r.importance == "HIGH" else "📌"
+                fecha = r.created_at.strftime("%d/%m %H:%M")
+                lines.append(f"{emoji} <b>{r.title}</b> [{fecha}]
+   {r.description[:80] if r.description else ''}")
+            text = "
+".join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode="HTML")
@@ -110,10 +184,32 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reports = db.query(ReportModel).count()
         goals_active = db.query(GoalModel).filter(GoalModel.status == "ACTIVE").count()
         goals_done = db.query(GoalModel).filter(GoalModel.status == "COMPLETED").count()
-        priorities = db.query(PriorityModel).filter(PriorityModel.resolved == False).count()
+        exec_pending = db.query(ExecutivePriorityModel).filter(ExecutivePriorityModel.status == "pending").count()
+        critical = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.priority_level == "CRITICAL",
+            ExecutivePriorityModel.status == "pending"
+        ).count()
+        decisions = db.query(DecisionMemoryModel).count()
         last_report = db.query(ReportModel).order_by(ReportModel.created_at.desc()).first()
         last_text = f"{last_report.agent}: {last_report.message[:60]}" if last_report else "Sin reportes"
-        text = f"🧠 <b>RESUMEN EJECUTIVO CEREBRO</b>\n\n📋 Reportes: {reports}\n🎯 Metas activas: {goals_active} | Completadas: {goals_done}\n⚡ Prioridades pendientes: {priorities}\n\n📌 Último reporte:\n{last_text}"
+        text = (
+            "🧠 <b>RESUMEN EJECUTIVO CEREBRO</b>
+
+"
+            f"📋 Reportes: {reports}
+"
+            f"🎯 Metas activas: {goals_active} | Completadas: {goals_done}
+"
+            f"⚡ Prioridades ejecutivas pendientes: {exec_pending}
+"
+            f"🚨 Criticas: {critical}
+"
+            f"🧠 Decisiones registradas: {decisions}
+
+"
+            f"📌 Ultimo reporte:
+{last_text}"
+        )
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode="HTML")
@@ -138,5 +234,8 @@ def build_app():
     application.add_handler(CommandHandler("reportes", cmd_reportes))
     application.add_handler(CommandHandler("metas", cmd_metas))
     application.add_handler(CommandHandler("prioridades", cmd_prioridades))
+    application.add_handler(CommandHandler("priorities", cmd_prioridades))
+    application.add_handler(CommandHandler("decisions", cmd_decisions))
+    application.add_handler(CommandHandler("timeline", cmd_timeline))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     return application
