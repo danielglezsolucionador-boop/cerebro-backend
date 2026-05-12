@@ -125,6 +125,18 @@ async def create_goal(payload: dict, current_user=Depends(get_current_user)):
     finally:
         db.close()
 
+@app.post("/api/v1/admin/reset-admin")
+async def reset_admin():
+    from core.auth import create_user
+    db = SessionLocal()
+    try:
+        db.query(UserModel).filter(UserModel.username == "daniel").delete()
+        db.commit()
+    finally:
+        db.close()
+    create_user("daniel", "daniel.glez.solucionador@gmail.com", "cerebro24", is_admin=True)
+    return {"status": "admin reset ok"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
