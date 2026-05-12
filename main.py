@@ -22,11 +22,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from core.telegram_handler import build_app as build_telegram_app
+import asyncio
+
+telegram_app = None
+
 @app.on_event("startup")
 async def startup():
+    global telegram_app
     init_db()
     init_default_admin()
+    telegram_app = build_telegram_app()
+    await telegram_app.initialize()
+    await telegram_app.start()
+    await telegram_app.updater.start_polling()
     print("CEREBRO Backend v1.0 - Online")
+
+@app.on_event("shutdown")
+async def shutdown():
+    global telegram_app
+    if telegram_app:
+        await telegram_app.updater.stop()
+        await telegram_app.stop()
+        await telegram_app.shutdown()
 
 @app.get("/api/v1/health")
 async def health():

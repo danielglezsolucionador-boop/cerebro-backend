@@ -79,6 +79,14 @@ class EventModel(Base):
     processed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class TelegramMessageModel(Base):
+    __tablename__ = "telegram_messages"
+    id = Column(String, primary_key=True)
+    sender = Column(String, index=True)
+    message = Column(Text)
+    direction = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 
