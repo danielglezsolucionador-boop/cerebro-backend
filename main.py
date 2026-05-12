@@ -278,10 +278,6 @@ async def get_timeline(current_user=Depends(get_current_user)):
     finally:
         db.close()
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
 
 @app.get("/api/v1/summary")
 async def get_summary(current_user=Depends(get_current_user)):
@@ -316,3 +312,8 @@ async def get_summary(current_user=Depends(get_current_user)):
         return {"error": str(e)}
     finally:
         db.close()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
