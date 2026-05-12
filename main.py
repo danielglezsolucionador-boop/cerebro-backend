@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from datetime import datetime
 import uuid
 
-from core.database import init_db, SessionLocal, UserModel, AgentModel, ReportModel, ExecutiveMemoryModel, PriorityModel, GoalModel, EventModel, ExecutivePriorityModel, DecisionMemoryModel, TimelineModel, ExecutivePriorityModel, DecisionMemoryModel, TimelineModel
+from core.database import init_db, SessionLocal, UserModel, AgentModel, ReportModel, ExecutiveMemoryModel, PriorityModel, GoalModel, EventModel, ExecutivePriorityModel, DecisionMemoryModel, TimelineModel
 from core.auth import get_current_user, get_admin_user, init_default_admin, create_access_token, verify_password, get_user
 from core.telegram_gateway import notify_report, notify_goal, notify_alert
 
@@ -282,85 +282,37 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
-@app.post("/api/v1/priorities")
-async def create_priority(payload: dict, current_user=Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        p = ExecutivePriorityModel(
-            id=str(uuid.uuid4()),
-            title=payload.get("title", ""),
-            description=payload.get("description", ""),
-            category=payload.get("category", "GENERAL"),
-            priority_level=payload.get("priority_level", "MEDIUM"),
-            status="pending",
-            assigned_agent=payload.get("assigned_agent", ""),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
-        db.add(p)
-        db.commit()
-        return {"id": p.id, "title": p.title, "status": p.status}
-    finally:
-        db.close()
 
-@app.get("/api/v1/priorities")
-async def get_priorities(current_user=Depends(get_current_user)):
+@app.get("/api/v1/summary")
+async def get_summary(current_user=Depends(get_current_user)):
     db = SessionLocal()
     try:
-        items = db.query(ExecutivePriorityModel).order_by(ExecutivePriorityModel.created_at.desc()).all()
-        return [{"id": i.id, "title": i.title, "status": i.status, "priority_level": i.priority_level, "created_at": i.created_at.isoformat() if i.created_at else None} for i in items]
-    finally:
-        db.close()
-
-@app.patch("/api/v1/priorities/{priority_id}")
-async def update_priority(priority_id: str, payload: dict, current_user=Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        p = db.query(ExecutivePriorityModel).filter(ExecutivePriorityModel.id == priority_id).first()
-        if not p:
-            raise HTTPException(status_code=404, detail="Not found")
-        for key in ["title", "description", "status", "priority_level", "assigned_agent"]:
-            if key in payload:
-                setattr(p, key, payload[key])
-        p.updated_at = datetime.utcnow()
-        db.commit()
-        return {"id": p.id, "status": p.status}
-    finally:
-        db.close()
-
-@app.post("/api/v1/decisions")
-async def save_decision(payload: dict, current_user=Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        d = DecisionMemoryModel(
-            id=str(uuid.uuid4()),
-            topic=payload.get("topic", ""),
-            decision=payload.get("decision", ""),
-            reasoning=payload.get("reasoning", ""),
-            related_agent=payload.get("related_agent", ""),
-            tags=payload.get("tags", ""),
-            created_at=datetime.utcnow()
-        )
-        db.add(d)
-        db.commit()
-        return {"id": d.id, "topic": d.topic}
-    finally:
-        db.close()
-
-@app.get("/api/v1/decisions")
-async def get_decisions(current_user=Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        items = db.query(DecisionMemoryModel).order_by(DecisionMemoryModel.created_at.desc()).limit(50).all()
-        return [{"id": i.id, "topic": i.topic, "decision": i.decision, "reasoning": i.reasoning, "tags": i.tags, "created_at": i.created_at.isoformat() if i.created_at else None} for i in items]
-    finally:
-        db.close()
-
-@app.get("/api/v1/timeline")
-async def get_timeline(current_user=Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        items = db.query(TimelineModel).order_by(TimelineModel.created_at.desc()).limit(100).all()
-        return [{"id": i.id, "event_type": i.event_type, "title": i.title, "source": i.source, "importance": i.importance, "created_at": i.created_at.isoformat() if i.created_at else None} for i in items]
+        from datetime import timedelta
+        now = datetime.utcnow()
+        total_reports = db.query(ReportModel).count()
+        pending_priorities = db.query(ExecutivePriorityModel).filter(ExecutivePriorityModel.status == "pending").count()
+        critical_priorities = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.priority_level == "CRITICAL",
+            ExecutivePriorityModel.status == "pending"
+        ).count()
+        total_decisions = db.query(DecisionMemoryModel).count()
+        recent_reports = db.query(ReportModel).filter(
+            ReportModel.created_at >= now - timedelta(hours=24)
+        ).count()
+        overdue = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.status == "pending",
+            ExecutivePriorityModel.due_date < now
+        ).count()
+        return {
+            "total_reports": total_reports,
+            "pending_priorities": pending_priorities,
+            "critical_priorities": critical_priorities,
+            "total_decisions": total_decisions,
+            "recent_reports_24h": recent_reports,
+            "overdue_priorities": overdue,
+            "timestamp": now.isoformat(),
+        }
+    except Exception as e:
+        return {"error": str(e)}
     finally:
         db.close()
