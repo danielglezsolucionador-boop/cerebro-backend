@@ -93,7 +93,7 @@ class TelegramConversationModel(Base):
     role = Column(String, index=True)
     message = Column(Text)
     context_type = Column(String)
-    metadata = Column(Text)
+    meta = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class CEOMemoryModel(Base):
