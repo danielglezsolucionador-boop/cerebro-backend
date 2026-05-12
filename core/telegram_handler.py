@@ -124,7 +124,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     text = update.message.text
     save_message(str(update.effective_chat.id), text, "incoming")
-    response = "🧠 CEREBRO recibió tu mensaje. Usa /status /resumen /reportes /metas /prioridades"
+    from core.response_engine import process_ceo_message
+    await update.message.chat.send_action("typing")
+    response = await process_ceo_message(text)
     await update.message.reply_text(response, parse_mode="HTML")
     save_message("CEREBRO", response, "outgoing")
 

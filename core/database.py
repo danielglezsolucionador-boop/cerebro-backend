@@ -87,6 +87,32 @@ class TelegramMessageModel(Base):
     direction = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class TelegramConversationModel(Base):
+    __tablename__ = "telegram_conversations"
+    id = Column(String, primary_key=True)
+    role = Column(String, index=True)
+    message = Column(Text)
+    context_type = Column(String)
+    metadata = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class CEOMemoryModel(Base):
+    __tablename__ = "ceo_memory"
+    id = Column(String, primary_key=True)
+    category = Column(String, index=True)
+    content = Column(Text)
+    source = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class TimelineModel(Base):
+    __tablename__ = "timeline"
+    id = Column(String, primary_key=True)
+    event_type = Column(String, index=True)
+    title = Column(String)
+    description = Column(Text)
+    importance = Column(String, default="NORMAL")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 
