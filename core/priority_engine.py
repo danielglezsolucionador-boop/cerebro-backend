@@ -58,6 +58,36 @@ def build_reasoning(agent: str, message: str, category: str, level: str) -> str:
     else:
         return "Clasificado LOW — sin keywords de alerta detectados"
 
+
+def find_correlations(db, agent: str, category: str) -> list:
+    from core.database import ExecutivePriorityModel
+    try:
+        by_agent = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.assigned_agent == agent,
+            ExecutivePriorityModel.status == 'pending'
+        ).limit(3).all()
+
+        by_category = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.category == category,
+            ExecutivePriorityModel.status == 'pending'
+        ).limit(3).all()
+
+        seen = set()
+        results = []
+        for r in by_agent + by_category:
+            if r.id not in seen:
+                seen.add(r.id)
+                results.append({
+                    'id': r.id,
+                    'title': r.title,
+                    'priority_level': r.priority_level,
+                    'match': 'agent' if r.assigned_agent == agent else 'category'
+                })
+        return results
+    except Exception as e:
+        print(f"[correlation] Error: {e}")
+        return []
+
 def process_report(db, report_id: str, agent: str, message: str, category: str):
     from core.database import ExecutivePriorityModel, TimelineModel
 
@@ -92,7 +122,11 @@ def process_report(db, report_id: str, agent: str, message: str, category: str):
         from core.telegram_gateway import notify_escalation
         notify_escalation(agent, message, level, reasoning)
 
-        return level, reasoning
+        correlations = find_correlations(db, agent, category)
+        if correlations:
+            print(f'[correlation] {len(correlations)} correlaciones encontradas para {agent}/{category}')
+
+        return level, reasoning, correlations
 
     except Exception as e:
         db.rollback()

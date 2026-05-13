@@ -84,8 +84,8 @@ async def agent_report(payload: dict, current_user=Depends(get_current_user)):
         db.commit()
         notify_report(record.agent, record.message, record.priority)
         from core.priority_engine import process_report
-        level, reasoning = process_report(db, record.id, record.agent, record.message, record.category)
-        return {"id": record.id, "status": "saved", "priority_level": level}
+        level, reasoning, correlations = process_report(db, record.id, record.agent, record.message, record.category)
+        return {"id": record.id, "status": "saved", "priority_level": level, "correlations": len(correlations)}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
