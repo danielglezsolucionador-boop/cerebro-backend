@@ -46,7 +46,11 @@ async def _followup_scheduler():
         try:
             check_followups()
         except Exception as e:
-            print(f"[scheduler] Error: {e}")
+            print(f"[scheduler] Error followup: {e}")
+        try:
+            _check_offline_agents()
+        except Exception as e:
+            print(f"[scheduler] Error offline check: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -351,6 +355,19 @@ async def agent_heartbeat(payload: dict, current_user=Depends(get_current_user))
 async def agents_status(current_user=Depends(get_current_user)):
     from core.agent_registry import get_agents_status
     return get_agents_status()
+
+def _check_offline_agents():
+    from core.agent_registry import get_agents_status
+    from core.telegram_gateway import notify
+    from datetime import datetime
+    data = get_agents_status()
+    offline = data.get('offline', [])
+    if offline:
+        lines = ['🔴 <b>AGENTES CAIDOS DETECTADOS</b>\n']
+        for a in offline:
+            lines.append(f'• <b>{a["agent_name"]}</b> — sin heartbeat')
+        notify('\n'.join(lines))
+        print(f'[offline_detector] {len(offline)} agentes caidos notificados')
 
 if __name__ == "__main__":
     import uvicorn
