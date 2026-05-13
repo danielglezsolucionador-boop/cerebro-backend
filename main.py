@@ -24,6 +24,7 @@ app.add_middleware(
 
 from core.telegram_handler import build_app as build_telegram_app
 import asyncio
+from core.followup_engine import check_followups
 
 telegram_app = None
 
@@ -37,6 +38,15 @@ async def startup():
     await telegram_app.start()
     await telegram_app.updater.start_polling()
     print("CEREBRO Backend v1.0 - Online")
+    asyncio.ensure_future(_followup_scheduler())
+
+async def _followup_scheduler():
+    while True:
+        await asyncio.sleep(3600)
+        try:
+            check_followups()
+        except Exception as e:
+            print(f"[scheduler] Error: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():

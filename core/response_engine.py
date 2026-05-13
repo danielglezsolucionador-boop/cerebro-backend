@@ -90,25 +90,69 @@ def _fallback_response(user_message: str) -> str:
     reports_24h = len(context.get("reports", {}).get("recent_24h", []))
     critical = len(context.get("reports", {}).get("critical", []))
     active_goals = len(context.get("goals", {}).get("active", []))
-    priorities = len(context.get("priorities", {}).get("pending", []))
-    
+    priorities = context.get("priorities", {}).get("pending", [])
+    pending_count = len(priorities)
+    timeline = context.get("timeline", [])
+
     msg = user_message.lower()
-    
-    if any(w in msg for w in ["qué pasó", "que paso", "hoy", "status", "estado"]):
-        return f"Hoy: {reports_24h} reportes recibidos, {critical} críticos. {active_goals} metas activas. {priorities} prioridades pendientes. [Claude API pendiente de activación]"
-    
-    if any(w in msg for w in ["problema", "riesgo", "falla", "error"]):
+
+    if any(w in msg for w in ["qué pasó", "que paso", "hoy", "resumen", "status", "estado", "cómo vamos", "como vamos"]):
+        resumen = f"Hoy tenemos {reports_24h} reportes"
+        resumen += f", {critical} críticos" if critical > 0 else ", sin críticos"
+        resumen += f". {active_goals} metas activas"
+        resumen += f". {pending_count} prioridades pendientes"
         if critical > 0:
-            return f"Hay {critical} reportes críticos activos. Revisa /reportes para detalle. [Claude API pendiente]"
-        return "No hay reportes críticos activos en este momento. [Claude API pendiente]"
-    
-    if any(w in msg for w in ["meta", "objetivo", "goal"]):
-        return f"Tienes {active_goals} metas activas. Usa /metas para detalle. [Claude API pendiente]"
-    
-    if any(w in msg for w in ["prioridad", "urgente", "priorit"]):
-        return f"Hay {priorities} prioridades pendientes. Usa /prioridades para detalle. [Claude API pendiente]"
-    
-    return f"Contexto cargado: {reports_24h} reportes, {active_goals} metas, {priorities} prioridades. Claude API pendiente de activación para respuestas inteligentes."
+            resumen += ". ⚠️ Hay críticos sin resolver — revisa /prioridades"
+        elif pending_count == 0:
+            resumen += ". Todo despejado por ahora."
+        else:
+            resumen += ". Operando normal."
+        return resumen
+
+    if any(w in msg for w in ["urgente", "crítico", "critico", "problema", "riesgo", "falla", "error"]):
+        critical_items = [p for p in priorities if p.get("priority_level") in ("CRITICAL", "HIGH")]
+        if critical_items:
+            lines = [f"Hay {len(critical_items)} prioridades HIGH/CRITICAL abiertas:"]
+            for p in critical_items[:3]:
+                lines.append(f"• [{p.get('priority_level')}] {p.get('title', '')[:60]}")
+            return "\n".join(lines)
+        return "Sin críticos activos en este momento. Sistema estable."
+
+    if any(w in msg for w in ["meta", "objetivo", "goal", "metas"]):
+        if active_goals == 0:
+            return "No hay metas activas registradas. ¿Quieres crear una?"
+        return f"Tienes {active_goals} metas activas. Usa /metas para el detalle completo."
+
+    if any(w in msg for w in ["prioridad", "priorit", "pendiente"]):
+        if pending_count == 0:
+            return "No hay prioridades pendientes. Todo resuelto."
+        lines = [f"Hay {pending_count} prioridades pendientes:"]
+        for p in priorities[:3]:
+            lines.append(f"• [{p.get('priority_level')}] {p.get('title', '')[:60]}")
+        return "\n".join(lines)
+
+    if any(w in msg for w in ["semana", "week", "resumen semanal"]):
+        total = context.get("reports", {}).get("total", 0)
+        completed = context.get("goals", {}).get("completed", 0)
+        return f"Esta semana: {total} reportes totales, {completed} metas completadas, {pending_count} prioridades abiertas. {'Hay críticos sin resolver.' if critical > 0 else 'Sin alertas críticas.'}"
+
+    if any(w in msg for w in ["agente", "agent", "quién", "quien"]):
+        recent = context.get("reports", {}).get("recent_24h", [])
+        if recent:
+            agentes = list(set(r.get("agent", "") for r in recent[:10]))
+            return f"Agentes activos hoy: {', '.join(agentes[:5])}."
+        return "No hay actividad de agentes en las últimas 24h."
+
+    if any(w in msg for w in ["timeline", "eventos", "historial"]):
+        if not timeline:
+            return "No hay eventos recientes en el timeline."
+        lines = ["Últimos eventos:"]
+        for t in timeline[:4]:
+            lines.append(f"• {t.get('title', '')[:60]}")
+        return "\n".join(lines)
+
+    return f"Contexto activo: {reports_24h} reportes hoy, {active_goals} metas, {pending_count} prioridades. ¿Qué necesitas revisar?"
+
 
 async def process_ceo_message(user_message: str) -> str:
     save_conversation("ceo", user_message, "operational")
