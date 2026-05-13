@@ -39,14 +39,7 @@ async def cmd_status(update, context):
         goals = db.query(GoalModel).filter(GoalModel.status == 'ACTIVE').count()
         exec_priorities = db.query(ExecutivePriorityModel).filter(ExecutivePriorityModel.status == 'pending').count()
         critical = db.query(ExecutivePriorityModel).filter(ExecutivePriorityModel.priority_level == 'CRITICAL', ExecutivePriorityModel.status == 'pending').count()
-        text = '🧠 <b>CEREBRO STATUS</b>
-
-📋 Reportes totales: ' + str(reports) + '
-🎯 Metas activas: ' + str(goals) + '
-⚡ Prioridades ejecutivas pendientes: ' + str(exec_priorities) + '
-🚨 Criticas sin resolver: ' + str(critical) + '
-
-✅ Sistema operacional'
+        text = '🧠 <b>CEREBRO STATUS</b>\n\n📋 Reportes totales: ' + str(reports) + '\n🎯 Metas activas: ' + str(goals) + '\n⚡ Prioridades ejecutivas pendientes: ' + str(exec_priorities) + '\n🚨 Criticas sin resolver: ' + str(critical) + '\n\n✅ Sistema operacional'
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -62,12 +55,10 @@ async def cmd_reportes(update, context):
         if not records:
             text = '📋 No hay reportes aun.'
         else:
-            lines = ['📋 <b>ULTIMOS REPORTES</b>
-']
+            lines = ['📋 <b>ULTIMOS REPORTES</b>\n']
             for r in records:
                 lines.append('- <b>' + r.agent + '</b> [' + r.priority + '] -- ' + r.message[:80])
-            text = '
-'.join(lines)
+            text = '\n'.join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -83,12 +74,10 @@ async def cmd_metas(update, context):
         if not records:
             text = '🎯 No hay metas activas.'
         else:
-            lines = ['🎯 <b>METAS ACTIVAS</b>
-']
+            lines = ['🎯 <b>METAS ACTIVAS</b>\n']
             for r in records:
                 lines.append('- ' + r.title)
-            text = '
-'.join(lines)
+            text = '\n'.join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -104,14 +93,11 @@ async def cmd_prioridades(update, context):
         if not records:
             text = '⚡ No hay prioridades ejecutivas pendientes.'
         else:
-            lines = ['⚡ <b>PRIORIDADES EJECUTIVAS PENDIENTES</b>
-']
+            lines = ['⚡ <b>PRIORIDADES EJECUTIVAS PENDIENTES</b>\n']
             for r in records:
                 emoji = '🚨' if r.priority_level == 'CRITICAL' else '🔴' if r.priority_level == 'HIGH' else '🟡'
-                lines.append(emoji + ' <b>' + r.title + '</b> [' + r.priority_level + ']
-   ' + (r.description[:80] if r.description else ''))
-            text = '
-'.join(lines)
+                lines.append(emoji + ' <b>' + r.title + '</b> [' + r.priority_level + ']\n   ' + (r.description[:80] if r.description else ''))
+            text = '\n'.join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -127,13 +113,10 @@ async def cmd_decisions(update, context):
         if not records:
             text = '🧠 No hay decisiones registradas.'
         else:
-            lines = ['🧠 <b>ULTIMAS DECISIONES</b>
-']
+            lines = ['🧠 <b>ULTIMAS DECISIONES</b>\n']
             for r in records:
-                lines.append('- <b>' + r.topic + '</b>
-   ' + r.decision[:100])
-            text = '
-'.join(lines)
+                lines.append('- <b>' + r.topic + '</b>\n   ' + r.decision[:100])
+            text = '\n'.join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -149,15 +132,12 @@ async def cmd_timeline(update, context):
         if not records:
             text = '📅 No hay eventos en el timeline.'
         else:
-            lines = ['📅 <b>TIMELINE RECIENTE</b>
-']
+            lines = ['📅 <b>TIMELINE RECIENTE</b>\n']
             for r in records:
                 emoji = '🚨' if r.importance == 'CRITICAL' else '🔴' if r.importance == 'HIGH' else '📌'
                 fecha = r.created_at.strftime('%d/%m %H:%M')
-                lines.append(emoji + ' <b>' + r.title + '</b> [' + fecha + ']
-   ' + (r.description[:80] if r.description else ''))
-            text = '
-'.join(lines)
+                lines.append(emoji + ' <b>' + r.title + '</b> [' + fecha + ']\n   ' + (r.description[:80] if r.description else ''))
+            text = '\n'.join(lines)
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -177,16 +157,7 @@ async def cmd_resumen(update, context):
         decisions = db.query(DecisionMemoryModel).count()
         last_report = db.query(ReportModel).order_by(ReportModel.created_at.desc()).first()
         last_text = last_report.agent + ': ' + last_report.message[:60] if last_report else 'Sin reportes'
-        text = '🧠 <b>RESUMEN EJECUTIVO CEREBRO</b>
-
-📋 Reportes: ' + str(reports) + '
-🎯 Metas activas: ' + str(goals_active) + ' | Completadas: ' + str(goals_done) + '
-⚡ Prioridades ejecutivas pendientes: ' + str(exec_pending) + '
-🚨 Criticas: ' + str(critical) + '
-🧠 Decisiones registradas: ' + str(decisions) + '
-
-📌 Ultimo reporte:
-' + last_text
+        text = '🧠 <b>RESUMEN EJECUTIVO CEREBRO</b>\n\n📋 Reportes: ' + str(reports) + '\n🎯 Metas activas: ' + str(goals_active) + ' | Completadas: ' + str(goals_done) + '\n⚡ Prioridades ejecutivas pendientes: ' + str(exec_pending) + '\n🚨 Criticas: ' + str(critical) + '\n🧠 Decisiones registradas: ' + str(decisions) + '\n\n📌 Ultimo reporte:\n' + last_text
     finally:
         db.close()
     await update.message.reply_text(text, parse_mode='HTML')
@@ -204,7 +175,10 @@ async def handle_message(update, context):
     save_message('CEREBRO', response, 'outgoing')
 
 def build_app():
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    import httpx
+    from telegram.request import HTTPXRequest
+    request = HTTPXRequest(httpx_kwargs={"verify": False})
+    application = Application.builder().token(TELEGRAM_TOKEN).request(request).build()
     application.add_handler(CommandHandler('start', cmd_status))
     application.add_handler(CommandHandler('status', cmd_status))
     application.add_handler(CommandHandler('resumen', cmd_resumen))
