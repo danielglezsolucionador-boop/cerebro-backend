@@ -43,3 +43,15 @@ def notify_goal(title: str, status: str):
 def notify_alert(message: str):
     text = f"🔴 <b>ALERTA CEREBRO</b>\n\n{message}"
     notify(text)
+def notify_escalation(agent: str, message: str, level: str, reasoning: str):
+    if level not in ('HIGH', 'CRITICAL'):
+        return
+    emoji = '🚨' if level == 'CRITICAL' else '🔴'
+    text = (
+        f"{emoji} <b>ESCALAMIENTO {level}</b>\n\n"
+        f"<b>Agente:</b> {agent}\n"
+        f"<b>Nivel:</b> {level}\n"
+        f"<b>Mensaje:</b> {message[:100]}\n\n"
+        f"<b>Razon:</b> {reasoning}"
+    )
+    notify(text)

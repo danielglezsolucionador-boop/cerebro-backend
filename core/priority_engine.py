@@ -89,6 +89,9 @@ def process_report(db, report_id: str, agent: str, message: str, category: str):
         db.add(timeline)
         db.commit()
 
+        from core.telegram_gateway import notify_escalation
+        notify_escalation(agent, message, level, reasoning)
+
         return level, reasoning
 
     except Exception as e:
