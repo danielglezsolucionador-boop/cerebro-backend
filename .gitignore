@@ -1,0 +1,7 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+cerebro.db
+.env
+cleanup_temps.py
+scripts/
