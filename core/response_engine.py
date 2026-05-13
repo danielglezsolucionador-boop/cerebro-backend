@@ -151,7 +151,30 @@ def _fallback_response(user_message: str) -> str:
             lines.append(f"• {t.get('title', '')[:60]}")
         return "\n".join(lines)
 
-    return f"Contexto activo: {reports_24h} reportes hoy, {active_goals} metas, {pending_count} prioridades. ¿Qué necesitas revisar?"
+    if any(w in msg for w in ["gracioso", "chiste", "broma", "humor", "divertido", "algo bueno", "algo interesante"]):
+        if critical > 0:
+            return f"¿Gracioso? Tengo {critical} críticos abiertos y tú me pides chistes. Eso ya es gracioso de por sí."
+        if reports_24h == 0:
+            return "Hoy no ha pasado nada. Literalmente nada. Eso es lo más gracioso que tengo."
+        return f"Lo más gracioso de hoy: {reports_24h} reportes y ninguno es tuyo. Alguien está trabajando."
+
+    if any(w in msg for w in ["qué piensas", "que piensas", "opinión", "opinion", "qué harías", "que harias"]):
+        if pending_count > 0:
+            return f"Honestamente, con {pending_count} prioridades abiertas lo primero es cerrar eso antes de pensar en lo siguiente."
+        return "Sin pendientes críticos. Buen momento para avanzar algo nuevo si quieres."
+
+    if any(w in msg for w in ["gracias", "buen trabajo", "bien hecho", "excelente"]):
+        return "A la orden. Aquí estoy."
+
+    if any(w in msg for w in ["hola", "hey", "buenas", "buenos días", "buenas tardes", "qué tal"]):
+        if critical > 0:
+            return f"Hola. Hay {critical} críticos pendientes cuando quieras revisarlos."
+        return f"Todo en orden. {reports_24h} reportes hoy, {pending_count} prioridades abiertas."
+
+    # respuesta por defecto — natural, no robótica
+    if pending_count > 0:
+        return f"No entendí bien eso. Pero hay {pending_count} prioridades abiertas si quieres revisarlas."
+    return "No entendí bien. ¿Me lo reformulas? Estoy al tanto de todo."
 
 
 async def process_ceo_message(user_message: str) -> str:
