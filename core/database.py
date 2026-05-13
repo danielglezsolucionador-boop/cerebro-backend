@@ -136,6 +136,19 @@ class DecisionMemoryModel(Base):
     tags = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class AgentRegistryModel(Base):
+    __tablename__ = "agent_registry"
+    id = Column(String, primary_key=True)
+    agent_name = Column(String, unique=True, index=True)
+    status = Column(String, default="UNKNOWN")
+    last_heartbeat = Column(DateTime)
+    capabilities = Column(Text, default="")
+    version = Column(String, default="")
+    environment = Column(String, default="")
+    last_error = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

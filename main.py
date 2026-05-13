@@ -325,6 +325,33 @@ async def get_summary(current_user=Depends(get_current_user)):
     finally:
         db.close()
 
+
+@app.post("/api/v1/agents/register")
+async def agent_register(payload: dict, current_user=Depends(get_current_user)):
+    from core.agent_registry import register_agent
+    result = register_agent(
+        agent_name=payload.get("agent_name", ""),
+        capabilities=payload.get("capabilities", []),
+        version=payload.get("version", ""),
+        environment=payload.get("environment", ""),
+    )
+    return result
+
+@app.post("/api/v1/agents/heartbeat")
+async def agent_heartbeat(payload: dict, current_user=Depends(get_current_user)):
+    from core.agent_registry import heartbeat_agent
+    result = heartbeat_agent(
+        agent_name=payload.get("agent_name", ""),
+        status=payload.get("status", "HEALTHY"),
+        last_error=payload.get("last_error", ""),
+    )
+    return result
+
+@app.get("/api/v1/agents/status")
+async def agents_status(current_user=Depends(get_current_user)):
+    from core.agent_registry import get_agents_status
+    return get_agents_status()
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

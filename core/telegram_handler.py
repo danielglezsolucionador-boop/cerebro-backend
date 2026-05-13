@@ -174,6 +174,52 @@ async def handle_message(update, context):
     await update.message.reply_text(response, parse_mode='HTML')
     save_message('CEREBRO', response, 'outgoing')
 
+
+async def cmd_agents(update, context):
+    if not is_authorized(update.effective_chat.id):
+        return
+    save_message(str(update.effective_chat.id), '/agents', 'incoming')
+    from core.agent_registry import get_agents_status
+    data = get_agents_status()
+    healthy = data.get('healthy', [])
+    offline = data.get('offline', [])
+    degraded = data.get('degraded', [])
+    total = data.get('total', 0)
+    if total == 0:
+        text = '🤖 No hay agentes registrados aún.'
+    else:
+        lines = [f'🤖 <b>AGENTES CEREBRO</b> — {total} registrados\n']
+        for a in healthy:
+            lines.append(f'✅ <b>{a["agent_name"]}</b> [{a["version"]}] — {a["environment"]}')
+        for a in degraded:
+            lines.append(f'⚠️ <b>{a["agent_name"]}</b> — DEGRADADO: {a["last_error"][:50]}')
+        for a in offline:
+            lines.append(f'🔴 <b>{a["agent_name"]}</b> — OFFLINE')
+        text = '\n'.join(lines)
+    await update.message.reply_text(text, parse_mode='HTML')
+    save_message('CEREBRO', text, 'outgoing')
+
+async def cmd_status_ecosystem(update, context):
+    if not is_authorized(update.effective_chat.id):
+        return
+    save_message(str(update.effective_chat.id), '/status_ecosystem', 'incoming')
+    from core.agent_registry import get_agents_status
+    data = get_agents_status()
+    healthy = len(data.get('healthy', []))
+    offline = len(data.get('offline', []))
+    degraded = len(data.get('degraded', []))
+    total = data.get('total', 0)
+    emoji = '✅' if offline == 0 and degraded == 0 else '⚠️' if degraded > 0 else '🔴'
+    text = (
+        f'{emoji} <b>ECOSISTEMA CEREBRO</b>\n\n'
+        f'✅ Agentes healthy: {healthy}\n'
+        f'⚠️ Degradados: {degraded}\n'
+        f'🔴 Offline: {offline}\n'
+        f'📊 Total registrados: {total}'
+    )
+    await update.message.reply_text(text, parse_mode='HTML')
+    save_message('CEREBRO', text, 'outgoing')
+
 def build_app():
     import httpx
     from telegram.request import HTTPXRequest
@@ -188,5 +234,7 @@ def build_app():
     application.add_handler(CommandHandler('priorities', cmd_prioridades))
     application.add_handler(CommandHandler('decisions', cmd_decisions))
     application.add_handler(CommandHandler('timeline', cmd_timeline))
+    application.add_handler(CommandHandler('agents', cmd_agents))
+    application.add_handler(CommandHandler('status_ecosystem', cmd_status_ecosystem))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     return application
