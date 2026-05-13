@@ -163,11 +163,51 @@ async def cmd_resumen(update, context):
     await update.message.reply_text(text, parse_mode='HTML')
     save_message('CEREBRO', text, 'outgoing')
 
+
+def _resolver_prioridad(short_id: str) -> str:
+    from core.database import SessionLocal, ExecutivePriorityModel, TimelineModel
+    import uuid
+    from datetime import datetime
+    db = SessionLocal()
+    try:
+        record = db.query(ExecutivePriorityModel).filter(
+            ExecutivePriorityModel.id.like(short_id + '%')
+        ).first()
+        if not record:
+            return f'❌ No encontré prioridad con ID <code>{short_id}</code>. Verifica el ID.'
+        if record.status == 'completed':
+            return f'ℹ️ La prioridad <b>{record.title[:60]}</b> ya estaba resuelta.'
+        record.status = 'completed'
+        record.updated_at = datetime.utcnow()
+        timeline = TimelineModel(
+            id=str(uuid.uuid4()),
+            event_type='priority_resolved',
+            title=f'Resuelta por CEO — {record.assigned_agent}',
+            description=record.title[:100],
+            importance=record.priority_level,
+            created_at=datetime.utcnow(),
+        )
+        db.add(timeline)
+        db.commit()
+        return f'✅ <b>Prioridad resuelta</b>\n\n<b>{record.title[:80]}</b>\nAgente: {record.assigned_agent}\nNivel: {record.priority_level}'
+    except Exception as e:
+        db.rollback()
+        return f'❌ Error al resolver: {e}'
+    finally:
+        db.close()
+
 async def handle_message(update, context):
     if not is_authorized(update.effective_chat.id):
         return
     text = update.message.text
     save_message(str(update.effective_chat.id), text, 'incoming')
+    if text.lower().startswith('resolver '):
+        short_id = text.split(' ', 1)[1].strip()
+        response = _resolver_prioridad(short_id)
+        await update.message.reply_text(response, parse_mode='HTML')
+        save_message('CEREBRO', response, 'outgoing')
+        return
+
     from core.response_engine import process_ceo_message
     await update.message.chat.send_action('typing')
     response = await process_ceo_message(text)
